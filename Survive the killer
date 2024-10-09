@@ -1,0 +1,305 @@
+-- Booting the Library
+getgenv().SecureMode = true -- Enable Secure Mode
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Creating the Main Window with ESP tab
+local MainWindow = Rayfield:CreateWindow({
+    Name = "Survive The Killer! By Hell Boy", -- Window name
+    LoadingTitle = "Hell Gate",
+    LoadingSubtitle = "Hell Boy",
+    Size = UDim2.new(0, 200, 0, 250), -- Adjusted window size
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "hellgate", -- Custom folder
+        FileName = "Survive The Killer! By Hell Boy" -- Unique filename
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "Not created",
+        RememberJoins = true
+    },
+    KeySystem = false, -- Key system
+})
+
+-- Creating a Tab for ESP and Fastest Player
+local MainTab = MainWindow:CreateTab("Survive The Killer! By Hell Boy", 4483362458) -- Title and image
+
+-- Variable to track ESP state
+local espActive = false  -- Track if ESP is active
+local espInstances = {}  -- Table to store ESP instances
+local fastestPlayer
+
+-- Function to add ESP features to a player
+local function addESP(player, isFastest)
+    if player == game.Players.LocalPlayer then return end
+    local character = player.Character or player.CharacterAdded:Wait()
+
+    local function applyESP()
+        local highlight = Instance.new("Highlight")
+        highlight.FillColor = isFastest and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.75
+        highlight.OutlineTransparency = 0
+        highlight.Adornee = character
+        highlight.Parent = character
+        espInstances[player.UserId] = highlight
+    end
+
+    if character then applyESP() end
+    player.CharacterAdded:Connect(applyESP)
+end
+
+-- Function to remove ESP features from a player
+local function removeESP(player)
+    if espInstances[player.UserId] then
+        espInstances[player.UserId]:Destroy()
+        espInstances[player.UserId] = nil
+    end
+end
+
+-- Function to toggle ESP
+local function toggleESP()
+    espActive = not espActive
+    if espActive then
+        for _, player in pairs(game.Players:GetPlayers()) do
+            if player ~= game.Players.LocalPlayer and player ~= fastestPlayer then
+                addESP(player, false)
+            end
+        end
+        game.Players.PlayerAdded:Connect(function(player)
+            player.CharacterAdded:Connect(function()
+                if player ~= game.Players.LocalPlayer and player ~= fastestPlayer then
+                    addESP(player, false)
+                end
+            end)
+        end)
+        Rayfield:Notify({
+            Title = "ESP Activated 🧟‍♂️",
+            Content = "ESP is now active.",
+            Duration = 5
+        })
+    else
+        for _, player in pairs(game.Players:GetPlayers()) do
+            removeESP(player)
+        end
+        Rayfield:Notify({
+            Title = "ESP Deactivated 🤵🏻",
+            Content = "ESP has been turned off.",
+            Duration = 5
+        })
+    end
+end
+
+-- Create the ESP button in the ESP tab
+MainTab:CreateButton({
+    Name = "ESP Player👨🏻‍💻",
+    Callback = toggleESP
+})
+
+-- Variable to track fastest player
+local fastestPlayerTracking = false
+local fastestPlayerNotified = false
+
+-- Function to find the fastest player
+local function findFastestPlayer()
+    local highestSpeed = 0
+    fastestPlayer = nil
+
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player ~= game.Players.LocalPlayer then
+            local character = player.Character
+            if character and character:FindFirstChild("Humanoid") then
+                local speed = character.Humanoid.WalkSpeed
+                if speed > highestSpeed then
+                    highestSpeed = speed
+                    fastestPlayer = player
+                end
+            end
+        end
+    end
+
+    if fastestPlayer and not fastestPlayerNotified then
+        Rayfield:Notify({
+            Title = "Killer Found ❗",
+            Content = "Killer was☠️: " .. fastestPlayer.Name,
+            Duration = 5
+        })
+        fastestPlayerNotified = true
+        addESP(fastestPlayer, true)
+    end
+end
+
+-- Function to toggle fastest player tracking
+local function toggleFastestPlayer()
+    fastestPlayerTracking = not fastestPlayerTracking
+    if fastestPlayerTracking then
+        Rayfield:Notify({
+            Title = "Killer Tracking Activated 📡",
+            Content = "Tracking the fastest player.",
+            Duration = 5
+        })
+        spawn(function()
+            while fastestPlayerTracking do
+                findFastestPlayer()
+                wait(1)
+            end
+        end)
+    else
+        Rayfield:Notify({
+            Title = "Killer Tracking Deactivated ❌",
+            Content = "Stopped tracking the fastest player.",
+            Duration = 5
+        })
+        fastestPlayerNotified = false
+    end
+end
+
+-- Create the Fastest Player button in the ESP tab
+MainTab:CreateButton({
+    Name = "Find The Killer🤡",
+    Callback = toggleFastestPlayer
+})
+
+-- Infinite Jump Functionality
+local infiniteJumpEnabled = false
+local jumpConnection
+
+-- Function to toggle Infinite Jump
+local function toggleInfiniteJump()
+    infiniteJumpEnabled = not infiniteJumpEnabled
+    if infiniteJumpEnabled then
+        Rayfield:Notify({
+            Title = "Infinite Jump Activated 🦅",
+            Content = "You can now jump infinitely.",
+            Duration = 5
+        })
+        jumpConnection = game:GetService("UserInputService").JumpRequest:Connect(function()
+            game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass('Humanoid'):ChangeState("Jumping")
+        end)
+    else
+        Rayfield:Notify({
+            Title = "Infinite Jump Deactivated 🐌",
+            Content = "Infinite jump is now disabled.",
+            Duration = 5
+        })
+        if jumpConnection then
+            jumpConnection:Disconnect()
+            jumpConnection = nil
+        end
+    end
+end
+
+-- Create the Infinite Jump button in the ESP tab
+MainTab:CreateButton({
+    Name = "Infinite Jump 🦅",
+    Callback = toggleInfiniteJump
+})
+
+-- Variable to track box state
+local boxActive = false
+local originalTransparency = {}
+local originalCollisions = {}
+
+-- Function to toggle the "Make Me Box" functionality
+local function toggleMakeMeBox()
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+
+    if boxActive then
+        -- Restore original properties
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                if originalTransparency[part] then
+                    part.Transparency = originalTransparency[part] -- Restore transparency
+                end
+                if originalCollisions[part] then
+                    part.CanCollide = originalCollisions[part] -- Restore collision
+                end
+            end
+        end
+        boxActive = false
+        Rayfield:Notify({
+            Title = "Make Me Invisible Deactivated 🐋",
+            Content = "You are now visible to other players.",
+            Duration = 5
+        })
+    else
+        -- Store original properties and make the player a box
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                originalTransparency[part] = part.Transparency -- Store original transparency
+                originalCollisions[part] = part.CanCollide -- Store original collision
+                part.Transparency = 1 -- Make the part invisible
+                part.CanCollide = false -- Disable collision
+                part.BrickColor = BrickColor.new("Black") -- Change color to dark black
+            end
+        end
+        boxActive = true
+        Rayfield:Notify({
+            Title = "Make Me Invisible Active 🫥",
+            Content = "You are now hidden from other players.",
+            Duration = 5
+        })
+    end
+end
+
+-- Create the Hide Local Player button in the ESP tab
+MainTab:CreateButton({
+    Name = "Make Me Invisible 🫥",
+    Callback = toggleMakeMeBox
+})
+
+-- Function to clear all UI modifications
+local function clearAllUI()
+    -- Reset ESP
+    espActive = false
+    for _, player in pairs(game.Players:GetPlayers()) do
+        removeESP(player)
+    end
+
+    -- Reset Fastest Player Tracking
+    fastestPlayerTracking = false
+    fastestPlayerNotified = false
+
+    -- Reset Infinite Jump
+    if jumpConnection then
+        jumpConnection:Disconnect()
+        jumpConnection = nil
+    end
+
+    -- Reset Hide Local Player
+    boxActive = false
+    originalTransparency = {}
+    originalCollisions = {}
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    if character then
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 0
+                part.CanCollide = true
+                part.BrickColor = BrickColor.new("Medium stone grey")
+            end
+        end
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewers
+        end
+    end
+
+    Rayfield:Notify({
+        Title = "All Settings Reset 🔄",
+        Content = "All modifications have been cleared.",
+        Duration = 5
+    })
+end
+
+-- Create the Clear All UI button
+MainTab:CreateButton({
+    Name = "Clear All Settings 🔄",
+    Callback = clearAllUI
+})
+
+-- Close the library when finished
+Rayfield:Init()
+
